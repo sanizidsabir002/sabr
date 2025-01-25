@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sabr PDF Reader</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: linear-gradient(135deg, #f5f7fa 0%, #e4e8eb 100%);
+      color: #2d3748;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 2.8rem;
+      color: #2d3748;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(45deg, #1a365d, #2b6cb0);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .subtitle {
+      color: #4a5568;
+      font-size: 1.1rem;
+    }
+
+    .upload-area {
+      background: white;
+      padding: 2.5rem;
+      border-radius: 15px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      margin-bottom: 2rem;
+      text-align: center;
+      transition: transform 0.3s ease;
+    }
+
+    .upload-area:hover {
+      transform: translateY(-2px);
+    }
+
+    .file-input-wrapper {
+      position: relative;
+      display: inline-block;
+    }
+
+    #pdf-upload {
+      display: none;
+    }
+
+    .upload-btn {
+      background: linear-gradient(45deg, #4299e1, #667eea);
+      color: white;
+      padding: 1rem 2rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .upload-btn:hover {
+      background: linear-gradient(45deg, #3182ce, #5a67d8);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+    }
+
+    .controls {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      margin-bottom: 2rem;
+      display: none;
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .control-btn {
+      background: #fff;
+      border: 2px solid #e2e8f0;
+      padding: 0.75rem 1.25rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-weight: 500;
+      color: #4a5568;
+    }
+
+    .control-btn:hover:not(:disabled) {
+      background: #f7fafc;
+      border-color: #4299e1;
+      color: #2b6cb0;
+    }
+
+    .control-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .page-navigation {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      justify-content: center;
+    }
+
+    #page-input {
+      width: 60px;
+      padding: 0.5rem;
+      border: 2px solid #e2e8f0;
+      border-radius: 6px;
+      text-align: center;
+    }
+
+    .page-info {
+      color: #4a5568;
+      font-weight: 500;
+    }
+
+    .viewer {
+      background: white;
+      padding: 2rem;
+      border-radius: 15px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      overflow: auto;
+      max-width: 100%;
+      position: relative;
+    }
+
+    #pdf-container {
+      position: relative;
+    }
+
+    canvas {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+    }
+
+    .text-layer {
+      position: absolute;
+      left: 0;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      overflow: hidden;
+      opacity: 0.2;
+      line-height: 1;
+    }
+
+    .text-layer > span {
+      color: transparent;
+      position: absolute;
+      white-space: pre;
+      cursor: text;
+      transform-origin: 0% 0%;
+    }
+
+    .reading-controls {
+      margin-top: 1rem;
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+    }
+
+    #read-aloud {
+      background: linear-gradient(45deg, #48bb78, #38b2ac);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-weight: 500;
+    }
+
+    #read-aloud:hover {
+      background: linear-gradient(45deg, #38a169, #319795);
+      transform: translateY(-1px);
+    }
+
+    /* Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-content {
+      background: white;
+      margin: 10% auto;
+      padding: 1.5rem;
+      border-radius: 10px;
+      max-width: 500px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .close-modal {
+      float: right;
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+
+    #word-info {
+      margin-top: 1rem;
+    }
+
+    #manual-word-input {
+      padding: 0.5rem;
+      border: 2px solid #e2e8f0;
+      border-radius: 6px;
+      width: 150px;
+    }
+
+    #manual-lookup {
+      background: linear-gradient(45deg, #48bb78, #38b2ac);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-weight: 500;
+    }
+
+    #manual-lookup:hover {
+      background: linear-gradient(45deg, #38a169, #319795);
+      transform: translateY(-1px);
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 1rem;
+      }
+
+      .controls-grid {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 2rem;
+      }
+
+      .page-navigation {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Sabr PDF Reader</h1>
+      <p class="subtitle">Read in the name of your Lord who created.</p>
+    </header>
+
+    <div class="upload-area">
+      <div class="file-input-wrapper">
+        <label for="pdf-upload" class="upload-btn">Choose PDF File</label>
+        <input type="file" id="pdf-upload" accept="application/pdf">
+      </div>
+    </div>
+
+    <div class="controls" id="controls">
+      <div class="controls-grid">
+        <button class="control-btn" id="prev-page">← Previous Page</button>
+        <div class="page-navigation">
+          <input type="number" id="page-input" min="1" value="1">
+          <span class="page-info" id="page-info">of 1</span>
+        </div>
+        <button class="control-btn" id="next-page">Next Page →</button>
+        <button class="control-btn" id="zoom-out">🔍 Zoom Out</button>
+        <button class="control-btn" id="zoom-in">🔍 Zoom In</button>
+        <button class="control-btn" id="read-aloud">🔊 Read Aloud</button>
+        <button class="control-btn" id="lookup-word">🔍 Lookup Word</button>
+        <input type="text" id="manual-word-input" placeholder="Enter word to lookup">
+        <button class="control-btn" id="manual-lookup">🔍 Manual Lookup</button>
+      </div>
+    </div>
+
+    <div class="viewer">
+      <div id="pdf-container">
+        <canvas id="pdf-canvas"></canvas>
+        <div class="text-layer"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dictionary Modal -->
+  <div id="dictionary-modal" class="modal">
+    <div class="modal-content">
+      <span class="close-modal">&times;</span>
+      <h3>Dictionary</h3>
+      <div id="word-info">
+        <p><strong>Word:</strong> <span id="selected-word"></span></p>
+        <p><strong>Definition:</strong> <span id="word-definition"></span></p>
+        <p><strong>Translation (Bangla):</strong> <span id="word-translation"></span></p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('pdf-upload');
+    const canvas = document.getElementById('pdf-canvas');
+    const ctx = canvas.getContext('2d');
+    const controls = document.getElementById('controls');
+    const pageInfo = document.getElementById('page-info');
+    const pageInput = document.getElementById('page-input');
+    const prevButton = document.getElementById('prev-page');
+    const nextButton = document.getElementById('next-page');
+    const zoomInButton = document.getElementById('zoom-in');
+    const zoomOutButton = document.getElementById('zoom-out');
+    const readAloudButton = document.getElementById('read-aloud');
+    const lookupWordButton = document.getElementById('lookup-word');
+    const manualWordInput = document.getElementById('manual-word-input');
+    const manualLookupButton = document.getElementById('manual-lookup');
+    const dictionaryModal = document.getElementById('dictionary-modal');
+    const closeModal = document.querySelector('.close-modal');
+    const selectedWordElement = document.getElementById('selected-word');
+    const wordDefinitionElement = document.getElementById('word-definition');
+    const wordTranslationElement = document.getElementById('word-translation');
+
+    let currentPDF = null;
+    let currentPage = 1;
+    let scale = 1.5;
+    let pdfText = '';
+
+    // Function to extract text from the current PDF page
+    async function extractPageText(page) {
+      const textContent = await page.getTextContent();
+      return textContent.items.map(item => item.str).join(' ');
+    }
+
+    // Function to render the current PDF page
+    async function renderPage() {
+      const page = await currentPDF.getPage(currentPage);
+      const viewport = page.getViewport({ scale });
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+
+      const renderContext = {
+        canvasContext: ctx,
+        viewport: viewport,
+      };
+
+      await page.render(renderContext).promise;
+
+      // Render the text layer
+      const textLayer = document.querySelector('.text-layer');
+      textLayer.innerHTML = ''; // Clear previous text layer
+      textLayer.style.width = `${canvas.width}px`;
+      textLayer.style.height = `${canvas.height}px`;
+
+      const textContent = await page.getTextContent();
+      pdfjsLib.renderTextLayer({
+        textContent: textContent,
+        container: textLayer,
+        viewport: viewport,
+        textDivs: [],
+      });
+
+      pdfText = textContent.items.map(item => item.str).join(' ');
+
+      pageInfo.textContent = `of ${currentPDF.numPages}`;
+      pageInput.value = currentPage;
+      pageInput.max = currentPDF.numPages;
+
+      prevButton.disabled = currentPage <= 1;
+      nextButton.disabled = currentPage >= currentPDF.numPages;
+    }
+
+    // Event listener for file upload
+    fileInput.addEventListener('change', async (event) => {
+      const file = event.target.files[0];
+      const reader = new FileReader();
+
+      reader.onload = async function () {
+        const pdfData = new Uint8Array(this.result);
+        currentPDF = await pdfjsLib.getDocument(pdfData).promise;
+        currentPage = 1;
+        scale = 1.5;
+        controls.style.display = 'block';
+        renderPage();
+      };
+
+      reader.readAsArrayBuffer(file);
+    });
+
+    // Event listeners for page navigation
+    prevButton.addEventListener('click', () => {
+      if (currentPage > 1) {
+        currentPage--;
+        renderPage();
+      }
+    });
+
+    nextButton.addEventListener('click', () => {
+      if (currentPDF && currentPage < currentPDF.numPages) {
+        currentPage++;
+        renderPage();
+      }
+    });
+
+    pageInput.addEventListener('change', () => {
+      const pageNumber = parseInt(pageInput.value);
+      if (pageNumber && pageNumber >= 1 && pageNumber <= currentPDF.numPages) {
+        currentPage = pageNumber;
+        renderPage();
+      }
+    });
+
+    // Event listeners for zoom controls
+    zoomInButton.addEventListener('click', () => {
+      scale *= 1.2;
+      renderPage();
+    });
+
+    zoomOutButton.addEventListener('click', () => {
+      scale *= 0.8;
+      renderPage();
+    });
+
+    // Event listener for read aloud
+    let isSpeaking = false;
+    readAloudButton.addEventListener('click', () => {
+      if (!pdfText) return;
+
+      if (isSpeaking) {
+        speechSynthesis.cancel();
+        isSpeaking = false;
+        readAloudButton.textContent = '🔊 Read Aloud';
+      } else {
+        const utterance = new SpeechSynthesisUtterance(pdfText);
+        utterance.onend = () => {
+          isSpeaking = false;
+          readAloudButton.textContent = '🔊 Read Aloud';
+        };
+        speechSynthesis.speak(utterance);
+        isSpeaking = true;
+        readAloudButton.textContent = '🔇 Stop Reading';
+      }
+    });
+
+    // Function to fetch English definition
+    async function fetchDefinition(word) {
+      const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
+      const data = await response.json();
+      if (data && data[0]?.meanings) {
+        return data[0].meanings[0].definitions[0].definition;
+      }
+      return 'Definition not found.';
+    }
+
+    // Function to fetch English-to-Bangla translation
+    async function fetchTranslation(word) {
+      const response = await fetch('https://libretranslate.com/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          q: word,
+          source: 'en',
+          target: 'bn',
+          format: 'text',
+        }),
+      });
+      const data = await response.json();
+      return data.translatedText || 'Translation not found.';
+    }
+
+    // Function to handle word lookup
+    async function lookupWord(word) {
+      if (!word) {
+        alert('Please enter or select a word to lookup.');
+        return;
+      }
+
+      selectedWordElement.textContent = word;
+      wordDefinitionElement.textContent = 'Loading...';
+      wordTranslationElement.textContent = 'Loading...';
+
+      // Fetch definition and translation
+      const definition = await fetchDefinition(word);
+      const translation = await fetchTranslation(word);
+
+      wordDefinitionElement.textContent = definition;
+      wordTranslationElement.textContent = translation;
+
+      // Show the modal
+      dictionaryModal.style.display = 'block';
+    }
+
+    // Event listener for manual lookup
+    manualLookupButton.addEventListener('click', () => {
+      const word = manualWordInput.value.trim();
+      lookupWord(word);
+    });
+
+    // Event listener for selected word lookup
+    lookupWordButton.addEventListener('click', () => {
+      const selectedText = window.getSelection().toString().trim();
+      lookupWord(selectedText);
+    });
+
+    // Event listener for clicking on text layer to select word
+    document.querySelector('.text-layer').addEventListener('click', (event) => {
+      const selectedText = window.getSelection().toString().trim();
+      if (selectedText) {
+        lookupWord(selectedText);
+      }
+    });
+
+    // Event listeners for modal
+    closeModal.addEventListener('click', () => {
+      dictionaryModal.style.display = 'none';
+    });
+    window.addEventListener('click', (event) => {
+      if (event.target === dictionaryModal) {
+        dictionaryModal.style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>
